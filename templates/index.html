@@ -1,0 +1,255 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Smoker Monitor</title>
+        <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.3/dist/jquery.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.2/dist/semantic.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.2/dist/semantic.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.3.0/chart.umd.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/moment@^2"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@^1"></script>
+    </head>
+    <body>
+        <div class="ui container" >
+            <div class="ui top attached segment" >
+                <div class="ui huge header" >Smoker Monitor</div>
+            </div>
+            <div class="ui attached segment" >
+                <div class="ui large header" >Monitoring is {{monitoring_state}}</div>
+                <form id="monitoring_toggle" class="ui form" action="/toggle_monitoring" method="POST">
+                    <input type="hidden" name="monitoring_action" value="{{monitoring_action}}">
+                    <button class="ui button" >{{monitoring_action}} Monitoring</button>
+                </form>
+            </div>
+            <div class="ui attached segment" >
+                <form id="temp_form" class="ui form" action="/update_temps" method="POST">
+                    <table class="ui table" >
+                        <tr>
+                            <td>Current Temp</td>
+                            <td><div class="basic label" id="current_temperature">{{(1.8 * current_temp + 32.0) | round(1) }} °F</div></td>
+                        </tr>
+                        <tr>
+                            <td>Target Temp</td>
+                            <td>
+                                <div class="field">
+                                    <div class="ui right labeled input">
+                                        <input name="target_temp" step="any" type="number" size="5" value="{{ (1.8 * target_temp + 32) | round(1) }}">
+                                        <div class="ui basic label" >°F</div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Target Temp Delta</td>
+                            <td>
+                                <div class="field">
+                                    <div class="ui right labeled input">
+                                        <input name="target_delta" step="any" type="number" size="5" value="{{ (target_delta * 1.8) | round(1) }}">
+                                        <div class="ui basic label" >°F</div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                    <button class="ui button" type="submit">Submit</button>
+                </form>
+            </div>
+            <div class="ui attached segment" >
+                <canvas id="temp_chart" ></canvas>
+            </div>
+            <div class="ui attached segment">
+                <div class="ui accordion">
+                    <div class="title">
+                        <i class="dropdown icon" ></i>
+                        Advanced Settings
+                    </div>
+                    <div class="content" >
+                        <form class="ui form" action="/update_advanced" method="POST">
+                            <table class="ui table" >
+                                <tr>
+                                    <td>HASS Sensor Name</td>
+                                    <td>
+                                        <div class="field">
+                                            <div class="ui input">
+                                                <input name="hass_sensor_name" type="text" value="{{hass_sensor_name}}">
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>MQTT Switch Name</td>
+                                    <td>
+                                        <div class="field">
+                                            <div class="ui input">
+                                                <input name="mqtt_switch_name" type="text" value="{{mqtt_switch_name}}">
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                            <button class="ui button" type="submit">Submit</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+         $('.ui.accordion').accordion();
+         $('.ui.form#temp_form').form({
+             fields: {
+                 target_temp: {
+                     identifier: 'target_temp',
+                     rules: [ { type: 'number' } ]
+                 },
+                 target_delta: {
+                     identifier: 'target_delta',
+                     rules: [ { type: 'number' } ]
+                 }
+             }
+         });
+
+         function cToF(tempC) {
+             return (1.8 * tempC + 32.0);
+         }
+
+         function updateData() {
+             var new_data = [];
+             $.ajax({
+                 url: 'http://smoker.iot.house:5000/temp_history',
+                 dataType: 'application/json',
+                 complete: function(data) {
+                     new_data = JSON.parse(data.responseText);
+                     smoker_chart.data.labels = new_data.map(row=>Date.parse(row.time));
+                     smoker_chart.data.datasets[0].data = new_data.map(row=>cToF(row.temperature));
+                     smoker_chart.data.datasets[1].data = new_data.map(row=>cToF(row.set_temperature - row.delta));
+                     smoker_chart.data.datasets[2].data = new_data.map(row=>cToF(row.set_temperature));
+                     smoker_chart.data.datasets[3].data = new_data.map(row=>cToF(row.set_temperature + row.delta));
+                     smoker_chart.data.datasets[4].data = new_data.map(row=>cToF(row.one_min_temp));
+                     smoker_chart.update();
+                     $('div#current_temperature').text(`${cToF(new_data[new_data.length-1].temperature)} °F`);
+                 }
+             });
+         }
+
+         var chart_data = [];
+         var smoker_chart = null;
+
+         function createChart(chart_data) {
+             smoker_chart = new Chart(document.getElementById('temp_chart'),
+                                      {
+                                          type: 'line',
+                                          data: {
+                                              labels: chart_data.map(row=>Date.parse(row.time)),
+                                              datasets: [
+                                                  {
+                                                      label: 'Smoker Temp',
+                                                      borderWidth: 1,
+                                                      pointRadius: 1,
+                                                      data: chart_data.map(row=>cToF(row.temperature)),
+                                                      backgroundColor: 'rgb(0,0,255)',
+                                                      borderColor: 'rgb(0,0,255)',
+                                                      spanGaps: false
+                                                  },
+                                                  {
+                                                      label: 'none',
+                                                      data: chart_data.map(row=>(cToF(row.set_temperature - row.delta))),
+                                                      fill: '+1',
+                                                      backgroundColor: 'rgba(0,255,0,0.1)',
+                                                      borderColor: 'rgba(0,255,0,0.1)',
+                                                      pointStyle: false,
+                                                      showLine: false,
+                                                      spanGaps: false
+                                                  },
+                                                  {
+                                                      label: 'Target Temp',
+                                                      borderWidth: 1,
+                                                      pointStyle: false,
+                                                      backgroundColor: 'rgb(0, 128, 0)',
+                                                      borderColor: 'rgb(0, 128, 0)',
+                                                      borderDash: [10, 5],
+                                                      data: chart_data.map(row=>cToF(row.set_temperature)),
+                                                      spanGaps: false
+                                                  },
+                                                  {
+                                                      label: 'Target Range',
+                                                      data: chart_data.map(row=>(cToF(row.set_temperature + row.delta))),
+                                                      fill: '-1',
+                                                      backgroundColor: 'rgba(0,255,0,0.1)',
+                                                      borderColor: 'rgba(0,255,0,0.1)',
+                                                      pointStyle: false,
+                                                      showLine: false,
+                                                      spanGaps: false
+                                                  },
+                                                  {
+                                                      label: 'Predicted Temp',
+                                                      borderWidth: 1,
+                                                      pointRadius: 1,
+                                                      data: chart_data.map(row=>cToF(row.one_min_temp)),
+                                                      backgroundColor: 'rgb(255,0,0)',
+                                                      borderColor: 'rgb(255,0,0)',
+                                                      spanGaps: false
+                                                  },
+                                              ]
+                                          },
+                                          options: {
+                                              plugins: {
+                                                  legend: {
+                                                      labels: {
+                                                          filter: item => item.text !== 'none'
+                                                      }
+                                                  }
+                                              },
+                                              scales: {
+                                                  x: {
+                                                      type: 'time',
+                                                      ticks: {
+                                                          autoSkip: true,
+                                                          maxTicksLimit: 10
+                                                      }
+                                                  }
+                                              }
+                                          }
+                                      }
+             );
+         }
+
+
+         // Load the current data
+         $.ajax({
+             url: 'http://smoker.iot.house:5000/temp_history',
+             dataType: 'application/json',
+             complete: function(data) {
+                 chart_data = JSON.parse(data.responseText);
+                 createChart(chart_data);
+             }
+         });
+
+         if (('{{monitoring_state}}' !== 'Stopped') ||
+             ('{{monitoring_state}}' !== 'Failed (Thermocouple')) {
+             setInterval(updateData, 30000);
+         }
+        </script>
+    </body>
+</html>
+
+
+<!--                      /* plugins: [{
+     *     beforeRender: (x, options) => {
+     *         const c = x.chart;
+     *         const dataset = x.data.datasets[0];
+     *         const yScale = x.scales['y-axis-0'];
+     *         const yPos = x.scales['y-axis-0'].getPixelForValue(27);
+
+     *         const gradientFill = c.ctx.createLinearGradient(0, 0, 0, c.height);
+
+     *         /* Red from top to 0 */
+     *         gradientFill.addColorStop(0, 'rgb(255,0,0)');
+     *         gradientFill.addColorStop(yPos / c.height, 'rgb(255,0,0)');
+
+     *         /* Blue from 0 to bottom */
+     *         gradientFill.addColorStop(yPos / c.height, 'rgb(0,0,255)');
+     *         gradientFill.addColorStop(1, 'rgb(0,255)');
+     *     }
+     }] */
+-->
