@@ -17,7 +17,7 @@ As mentioned above, a Raspberry Pi is the brains of the operation:
 
 ## Running
 
-Simply run `python3 SmokerWeb.py` and then connect to the system via a web browser.
+Simply run `python3 SmokoTime.py` or `./SmokoTime.py` and then connect to the system via a web browser.
 
 ## Challenges
 

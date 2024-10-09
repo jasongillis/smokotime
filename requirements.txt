@@ -24,6 +24,8 @@ numpy==1.25.1
 paho-mqtt==1.6.1
 pyftdi==0.54.0
 pyserial==3.5
+python-dotenv==1.0.1
+pytz==2024.2
 pyusb==1.2.1
 requests==2.31.0
 rpi-ws281x==5.0.0

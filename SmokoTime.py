@@ -1,10 +1,19 @@
+#!/usr/bin/env python3
+
+import os
+
 from flask import Flask, redirect, url_for, request
 from flask import render_template
+
+from dotenv import load_dotenv
+
 from SmokerMonitor import SmokerMonitor
 from MQTTPublisher import MQTTPublisher
 from HASSTempSender import HASSTempSender
 
 import json
+
+load_dotenv()
 
 class SmokoTime:
     def __init__(self, monitor: SmokerMonitor):
@@ -165,18 +174,20 @@ class SmokoTime:
             }
         return f'<p>Hello</p><p>Last temp was {latest_data["temperature"]}</p>'
 
-mqtt_server = 'server.name'
-mqtt_user = 'mqtt_user'
-mqtt_pass = 'password'
-hass_server = 'hass.server'
-hass_token = 'LL token'
+mqtt_server = os.getenv('MQTT_SERVER')
+mqtt_user = os.getenv('MQTT_USER')
+mqtt_pass = os.getenv('MQTT_PASS')
+hass_server = os.getenv('HASS_SERVER')
+hass_token = os.getenv('HASS_TOKEN')
+listen_port = os.getenv('LISTEN_PORT')
+listen_host = os.getenv('LISTEN_HOST')
 # sm = SmokerMonitor(mqtt_server, hass_server, hass_token, mqtt_user, mqtt_pass, target_temp = 51.66, target_delta = 1.388)
 sm = SmokerMonitor(hass_server, hass_token, target_temp = 128.055555, target_delta = 5.55555555)
 # sm.start_temp_monitor()
 
 sw = SmokoTime(sm)
 
-sw.run(host="0.0.0.0")
+sw.run(host=listen_host, port=listen_port)
 
 # app = Flask(__name__)
 
