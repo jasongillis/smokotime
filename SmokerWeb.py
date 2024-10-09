@@ -4,6 +4,8 @@ from SmokerMonitor import SmokerMonitor
 from MQTTPublisher import MQTTPublisher
 from HASSTempSender import HASSTempSender
 
+import json
+
 class SmokerWeb:
     def __init__(self, monitor: SmokerMonitor):
         self.app = Flask('SmokerWeb')
@@ -16,16 +18,36 @@ class SmokerWeb:
         def __index():
             monitoring_state = self.smoker_monitor.monitoring_state
             monitoring_action = 'Start' if monitoring_state == 'Stopped' else 'Stop'
+            temp_hist = self.smoker_monitor.temp_history
+            temp_data = temp_hist.temp_history
+            if len(temp_data) != 0:
+                latest_data = temp_data[-1]
+            else:
+                latest_data = {
+                    'temperature': 0,
+                    'set_temperature': 0,
+                    'delta': 0
+                }
+
+            # print(f'self.smoker_monitor.enabled = {self.smoker_monitor.enabled}')
             return render_template(
                 'index.html',
-                current_temp=self.smoker_monitor.latest_temp,
-                target_temp=self.smoker_monitor.target_temp,
-                target_delta=self.smoker_monitor.target_delta,
-                chart_data=self.smoker_monitor.temp_history,
-                hass_sensor_name=self.smoker_monitor.hass_sensor,
-                mqtt_switch_name=self.smoker_monitor.mqtt_switch,
-                monitoring_action=monitoring_action,
-                monitoring_state=monitoring_state
+                current_temp        = latest_data['temperature'],
+                target_temp         = self.smoker_monitor.temp_history.target_temp,
+                target_delta        = self.smoker_monitor.temp_history.delta,
+                monitoring_interval = self.smoker_monitor.monitoring_interval,
+                hass_sensor_name    = self.smoker_monitor.hass_sensor,
+                hass_entity_name    = self.smoker_monitor.hass_entity,
+                hass_sensor_enabled = "checked" if self.smoker_monitor.hass_sensor_enabled else "",
+                heater_state        = self.smoker_monitor.heating_state,
+                monitoring_action   = monitoring_action,
+                monitoring_state    = monitoring_state,
+                element_state       = "On" if self.smoker_monitor.enabled else "Off",
+                proportional_gain   = self.smoker_monitor.proportional_gain,
+                integral_gain       = self.smoker_monitor.integral_gain,
+                integral_windup_guard       = self.smoker_monitor.integral_windup_guard,
+                derivative_gain     = self.smoker_monitor.derivative_gain,
+                alpha               = self.smoker_monitor.alpha
             )
 
         @self.app.route('/update_temps', methods=['POST'])
@@ -33,19 +55,40 @@ class SmokerWeb:
             if request.method == 'POST':
                 target_temp = (float(request.form['target_temp']) - 32.0) * 5.0/9.0
                 target_delta = (float(request.form['target_delta']) * 5.0/9.0)
+
                 print(f'Setting target_temp to {target_temp} C and target_delta to {target_delta} C')
-                self.smoker_monitor.target_temp = target_temp
-                self.smoker_monitor.target_delta = target_delta
+                temp_history = self.smoker_monitor.temp_history
+                temp_history.target_temp = target_temp
+                temp_history.delta = target_delta
+
+                interval = int(request.form['interval'])
+                print(f'Setting monitoring_interval to {interval}')
+                self.smoker_monitor.monitoring_interval = interval
+
                 return redirect(url_for('__index'))
 
         @self.app.route('/update_advanced', methods=['POST'])
         def __update_advanced():
             if request.method == 'POST':
                 hass_sensor_name = request.form['hass_sensor_name']
-                mqtt_switch_name = request.form['mqtt_switch_name']
-                print(f'Setting HASS sensor name to {hass_sensor_name} and MQTT switch to {mqtt_switch_name}')
+                hass_entity_name = request.form['hass_entity_name']
+                if request.form.get('hass_enable'):
+                    self.smoker_monitor.enable_hass_sensor()
+                else:
+                    self.smoker_monitor.disable_hass_sensor()
+
+                print(f'Setting HASS sensor name to {hass_sensor_name} and HASS switch to {hass_entity_name}')
                 self.smoker_monitor.hass_sensor = hass_sensor_name
-                self.smoker_monitor.mqtt_switch = mqtt_switch_name
+                self.smoker_monitor.hass_entity = hass_entity_name
+
+                # PID control params
+                self.smoker_monitor.proportional_gain = float(request.form['proportional_gain'])
+                self.smoker_monitor.integral_gain = float(request.form['integral_gain'])
+                self.smoker_monitor.integral_windup_guard = float(request.form['integral_windup_guard'])
+                self.smoker_monitor.derivative_gain = float(request.form['derivative_gain'])
+                self.smoker_monitor.alpha = float(request.form['alpha'])
+
+                # self.smoker_monitor.mqtt_switch = mqtt_switch_name
                 return redirect(url_for('__index'))
 
         @self.app.route('/toggle_monitoring', methods=['POST'])
@@ -59,21 +102,76 @@ class SmokerWeb:
 
         @self.app.route('/temp_history', methods=['GET'])
         def __get_temp_history():
+            """Get all the temperature history"""
             if request.method == 'GET':
-                return self.smoker_monitor.temp_history
+                return self.smoker_monitor.temp_history.temp_history
+
+        @self.app.route('/temp_history/since/<index>', methods=['GET'])
+        def __get_temp_history_since(index):
+            """Get the temperature since the specified index"""
+            if request.method == 'GET':
+                since = int(index)
+                values = self.smoker_monitor.temp_history.temp_history_since(since)
+                return values
+
+        @self.app.route('/state', methods=['GET'])
+        def __get_state():
+            """Get all the temperature history"""
+            if request.method == 'GET':
+                return {
+                    'state': self.smoker_monitor.monitoring_state,
+                    'action': self.smoker_monitor.action,
+                    'heater_state': self.smoker_monitor.heating_state
+                }
+
+        @self.app.route('/toggle_element', methods=['POST'])
+        def __toggle_element():
+            """Enable the heating element"""
+            # print(json.dumps(request.form));
+            if request.form.get('element_action'):
+                self.smoker_monitor.enable()
+            else:
+                self.smoker_monitor.disable()
+            return redirect(url_for('__index'))
+
+
+        @self.app.route('/element', methods=['GET'])
+        def __get_element():
+            """Get the heating element status"""
+            if self.smoker_monitor.enabled:
+                return "enabled"
+            else:
+                return "disabled"
+
+        @self.app.route('/thermocouple_details', methods=['GET'])
+        def __get_thermocouple_details():
+            """Get the thermocouple details from the monitor"""
+            if request.method == 'GET':
+                return self.smoker_monitor.thermocouple_details()
+
 
     def run(self, **kwargs):
         self.app.run(**kwargs)
 
     def index(self):
-        return f'<p>Hello</p><p>Last temp was {self.smoker_monitor.get_latest_temp()}</p>'
+        temp_data = self.smoker_monitor.temp_history.temp_history
+        if len(temp_data) != 0:
+            latest_data = temp_data[-1]
+        else:
+            latest_data = {
+                'temperature': 0,
+                'set_temperature': 0,
+                'delta': 0
+            }
+        return f'<p>Hello</p><p>Last temp was {latest_data["temperature"]}</p>'
 
 mqtt_server = 'server.house'
 mqtt_user = 'mqttdev'
 mqtt_pass = '***REMOVED***'
 hass_server = 'server.house'
 hass_token = "***REMOVED***"
-sm = SmokerMonitor(mqtt_server, hass_server, hass_token, mqtt_user, mqtt_pass, target_temp = 51.66, target_delta = 1.388)
+# sm = SmokerMonitor(mqtt_server, hass_server, hass_token, mqtt_user, mqtt_pass, target_temp = 51.66, target_delta = 1.388)
+sm = SmokerMonitor(hass_server, hass_token, target_temp = 128.055555, target_delta = 5.55555555)
 # sm.start_temp_monitor()
 
 sw = SmokerWeb(sm)
