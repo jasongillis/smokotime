@@ -6,9 +6,9 @@ from HASSTempSender import HASSTempSender
 
 import json
 
-class SmokerWeb:
+class SmokoTime:
     def __init__(self, monitor: SmokerMonitor):
-        self.app = Flask('SmokerWeb')
+        self.app = Flask('SmokoTime')
         self.app.config.update(TEMPLATES_AUTO_RELOAD=True)
         self.smoker_monitor = monitor
         self.initialize_routes()
@@ -165,16 +165,16 @@ class SmokerWeb:
             }
         return f'<p>Hello</p><p>Last temp was {latest_data["temperature"]}</p>'
 
-mqtt_server = 'server.house'
-mqtt_user = 'mqttdev'
-mqtt_pass = '***REMOVED***'
-hass_server = 'server.house'
-hass_token = "***REMOVED***"
+mqtt_server = 'server.name'
+mqtt_user = 'mqtt_user'
+mqtt_pass = 'password'
+hass_server = 'hass.server'
+hass_token = 'LL token'
 # sm = SmokerMonitor(mqtt_server, hass_server, hass_token, mqtt_user, mqtt_pass, target_temp = 51.66, target_delta = 1.388)
 sm = SmokerMonitor(hass_server, hass_token, target_temp = 128.055555, target_delta = 5.55555555)
 # sm.start_temp_monitor()
 
-sw = SmokerWeb(sm)
+sw = SmokoTime(sm)
 
 sw.run(host="0.0.0.0")
 
