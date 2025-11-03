@@ -8,6 +8,7 @@ from flask import render_template
 from dotenv import load_dotenv
 
 from SmokerMonitor import SmokerMonitor
+from MeaterMonitor import MeaterMonitor
 from MQTTPublisher import MQTTPublisher
 from HASSTempSender import HASSTempSender
 
@@ -16,10 +17,11 @@ import json
 load_dotenv()
 
 class SmokoTime:
-    def __init__(self, monitor: SmokerMonitor):
+    def __init__(self, monitor: SmokerMonitor, meater: MeaterMonitor):
         self.app = Flask('SmokoTime')
         self.app.config.update(TEMPLATES_AUTO_RELOAD=True)
         self.smoker_monitor = monitor
+        self.meater_monitor = meater
         self.initialize_routes()
 
     def initialize_routes(self):
@@ -73,6 +75,7 @@ class SmokoTime:
                 interval = int(request.form['interval'])
                 print(f'Setting monitoring_interval to {interval}')
                 self.smoker_monitor.monitoring_interval = interval
+                self.meater_monitor.monitoring_interval = interval
 
                 return redirect(url_for('__index'))
 
@@ -105,8 +108,10 @@ class SmokoTime:
             if request.method == 'POST':
                 if request.form['monitoring_action'] == 'Start':
                     self.smoker_monitor.start_temp_monitor()
+                    self.meater_monitor.start()
                 else:
                     self.smoker_monitor.stop_temp_monitor()
+                    self.meater_monitor.stop()
                 return redirect(url_for('__index'))
 
         @self.app.route('/temp_history', methods=['GET'])
@@ -121,6 +126,27 @@ class SmokoTime:
             if request.method == 'GET':
                 since = int(index)
                 values = self.smoker_monitor.temp_history.temp_history_since(since)
+                return values
+
+        @self.app.route('/meater/cooks', methods=['GET'])
+        def __get_meater_cooks():
+            """Get the cook id -> cook name dictionary"""
+            if request.method == 'GET':
+                return self.meater_monitor.history.cooks
+
+        @self.app.route('/meater/history', methods=['GET'])
+        def __get_meater_history():
+            """Get all the meater history"""
+            if request.method == 'GET':
+                return self.meater_monitor.history.history
+
+        @self.app.route('/meater/history/since/<index>', methods=['GET'])
+        def __get_meater_history_since(index):
+            """Get the meater since the specified index"""
+            if request.method == 'GET':
+                since = int(index)
+                print(f'Index = {index} :: Since = {since}')
+                values = self.meater_monitor.history.history_since(since)
                 return values
 
         @self.app.route('/state', methods=['GET'])
@@ -181,11 +207,16 @@ hass_server = os.getenv('HASS_SERVER')
 hass_token = os.getenv('HASS_TOKEN')
 listen_port = os.getenv('LISTEN_PORT')
 listen_host = os.getenv('LISTEN_HOST')
+
+# Related to Meater
+meater_user = os.getenv('MEATER_USER')
+meater_pass = os.getenv('MEATER_PASS')
+
 # sm = SmokerMonitor(mqtt_server, hass_server, hass_token, mqtt_user, mqtt_pass, target_temp = 51.66, target_delta = 1.388)
 sm = SmokerMonitor(hass_server, hass_token, target_temp = 128.055555, target_delta = 5.55555555)
 # sm.start_temp_monitor()
-
-sw = SmokoTime(sm)
+mm = MeaterMonitor(meater_user, meater_pass)
+sw = SmokoTime(sm, mm)
 
 sw.run(host=listen_host, port=listen_port)
 
