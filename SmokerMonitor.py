@@ -269,8 +269,8 @@ class SmokerMonitor:
             if self.hass_sensor_enabled:
                 self.hass_sender.publish(self._temp_history.latest)
 
-            #time.sleep(60/self.monitoring_interval)
-            time.sleep(1)
+            time.sleep(60/self.monitoring_interval)
+            # time.sleep(1)
 
     def heater(self):
         """Tight loop to turn the heat switch on and off"""
@@ -341,7 +341,7 @@ class SmokerMonitor:
 
     def pid_control(self):
         # Time interval
-        dt = 1
+        dt = self.monitoring_interval
 
         # Initialize terms
         previous_error = 0

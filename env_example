@@ -1,7 +1,9 @@
 MQTT_SERVER = "mqtt.server"
 MQTT_USER = "mqtt.user"
 MQTT_PASS = "password"
+MEATER_USER = "meater cloud email"
+MEATER_PASS = "meater cloud password"
 HASS_SERVER = "home.assistant.server"
-HASS_TOKEN = "long lived token"
+HASS_TOKEN = "Home Assistant long lived token"
 LISTEN_PORT = 5001
 LISTEN_HOST = "0.0.0.0"

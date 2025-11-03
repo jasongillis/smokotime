@@ -58,6 +58,7 @@ class SmokoTime:
                 integral_gain       = self.smoker_monitor.integral_gain,
                 integral_windup_guard       = self.smoker_monitor.integral_windup_guard,
                 derivative_gain     = self.smoker_monitor.derivative_gain,
+                listen_port         = self.port,
                 alpha               = self.smoker_monitor.alpha
             )
 
@@ -186,6 +187,10 @@ class SmokoTime:
 
 
     def run(self, **kwargs):
+        self.port = kwargs.get("port", -1)
+        if self.port == -1:
+            print("Unable to get port from args");
+            return;
         self.app.run(**kwargs)
 
     def index(self):

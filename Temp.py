@@ -9,6 +9,7 @@ class TempMeasurement:
     def __init__(self, index, temp, target_temp, temp_delta, units, one_min_temp, heating_state: str):
         self._index = index
         self._time = datetime.now(pytz.utc).astimezone()
+        self._timestamp_ms = int(self._time.timestamp() * 1000)
         self._temp = temp
         self._target_temp = target_temp
         self._delta = temp_delta
@@ -30,6 +31,10 @@ class TempMeasurement:
     @property
     def time(self):
         return self._time
+
+    @property
+    def timestamp_ms(self):
+        return self._timestamp_ms
 
     @property
     def target_temp(self):
@@ -56,6 +61,7 @@ class TempMeasurement:
         return {
             'index': self.index,
             'time': self.time,
+            'timestamp_ms': self.timestamp_ms,
             'temperature': self.temp,
             'set_temperature': self.target_temp,
             'delta': self.delta,
