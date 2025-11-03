@@ -1,464 +1,628 @@
 <!doctype html>
 <html>
-  <head>
-    <title>SmokoTime</title>
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.3/dist/jquery.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.2/dist/semantic.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.2/dist/semantic.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.3.0/chart.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/moment@^2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@^1"></script>
-  </head>
-  <body>
-    <div class="ui container" >
-      <div class="ui top attached segment" >
-        <div class="ui huge header" >SmokoTime</div>
-      </div>
-      <div class="ui attached segment" >
-        <form id="monitoring_toggle" class="ui form" action="/toggle_monitoring" method="POST">
-          <input id="monitoring_action_input" type="hidden" name="monitoring_action" value="{{monitoring_action}}">
-        </form>
-        <form id="element_toggle" class="ui form" action="/toggle_element" method="POST">
-        </form>
-        <form class="ui form">
-          <div class="five fields">
-            <div class="field">
-              <label>Monitoring status</label>
-                <div class="ui toggle checkbox" id="monitoring_toggle">
-                  <input type="checkbox" form="monitoring_toggle"
-                         name="monitoring_action_check" value="{{monitoring_action}}"
-                         {% if monitoring_action == 'Stop' %}checked{% endif %}>
-                  <label>
-                    <div class="ui {% if monitoring_action == 'Stop' %}red{% endif %} label">{{monitoring_state}}</div>
-                  </label>
-                </div>
-              </form>
+    <head>
+        <title>SmokoTime</title>
+        <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.3/dist/jquery.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.2/dist/semantic.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.2/dist/semantic.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/moment@^2"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@^1"></script>
+    </head>
+    <body>
+        <div class="ui container" >
+            <div class="ui top attached segment" >
+                <div class="ui huge header" >SmokoTime</div>
             </div>
-            <div class="field">
-              <label>Heating Element</label>
-                <div class="ui toggle checkbox" id="element_toggle">
-                  <input type="checkbox" form="element_toggle" name="element_action" value="on"  {% if element_state == 'On' %}checked{% endif %}>
-                  <label>
-                    <div class="ui {% if element_state == 'On' %}red{% endif %} label">{% if element_state == 'On' %}Enabled{% else %}Disabled{% endif %}</div>
-                  </label>
-                </div>
-              </form>
+            <div class="ui attached segment" >
+                <form id="monitoring_toggle" class="ui form" action="/toggle_monitoring" method="POST">
+                    <input id="monitoring_action_input" type="hidden" name="monitoring_action" value="{{monitoring_action}}">
+                </form>
+                <form id="element_toggle" class="ui form" action="/toggle_element" method="POST">
+                </form>
+                <form class="ui form">
+                    <div class="five fields">
+                        <div class="field">
+                            <label>Monitoring status</label>
+                            <div class="ui toggle checkbox" id="monitoring_toggle">
+                                <input type="checkbox" form="monitoring_toggle"
+                                       name="monitoring_action_check" value="{{monitoring_action}}"
+                                       {% if monitoring_action == 'Stop' %}checked{% endif %}>
+                                <label>
+                                    <div class="ui {% if monitoring_action == 'Stop' %}red{% endif %} label">{{monitoring_state}}</div>
+                                </label>
+                            </div>
+                </form>
+                        </div>
+                        <div class="field">
+                            <label>Heating Element</label>
+                            <div class="ui toggle checkbox" id="element_toggle">
+                                <input type="checkbox" form="element_toggle" name="element_action" value="on"  {% if element_state == 'On' %}checked{% endif %}>
+                                <label>
+                                    <div class="ui {% if element_state == 'On' %}red{% endif %} label">{% if element_state == 'On' %}Enabled{% else %}Disabled{% endif %}</div>
+                                </label>
+                            </div>
+                </form>
+                        </div>
+                    </div>
+                </form>
             </div>
-          </div>
-        </form>
-      </div>
-      <div class="ui attached segment" style="height: 100%;" >
-        <form id="temp_form" class="ui form" action="/update_temps" method="POST">
-          <div class="five fields">
-            <div class="field">
-              <label>Current Temp &nbsp;&nbsp; <i class="thermometer half icon"></i></label>
-              <div class="basic label" id="current_temperature">{{(1.8 * current_temp + 32.0) | round(1) }} °F</div>
+            <div class="ui attached segment" style="height: 100%;" >
+                <form id="temp_form" class="ui form" action="/update_temps" method="POST">
+                    <div class="five fields">
+                        <div class="field">
+                            <label>Current Temp &nbsp;&nbsp; <i class="thermometer half icon"></i></label>
+                            <div class="basic label" id="current_temperature">{{(1.8 * current_temp + 32.0) | round(1) }} °F</div>
+                        </div>
+                        <div class="field">
+                            <label>Heating Element State &nbsp;&nbsp; <i class="orange burn icon"></i></label>
+                            <div class="basic label">
+                                <div id="heater_state_label" class="ui {% if heater_state == 'on' %}red{% endif %} label">
+                                    <span id="heater_state">{{heater_state}}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="field" data-tooltip="Target temperature for the cook">
+                            <label>Target Temp &nbsp;&nbsp; <i class="red bullseye icon"></i></label>
+                            <div class="ui right labeled input">
+                                <input name="target_temp" step="any" type="number" size="5" value="{{ (1.8 * target_temp + 32) | round(1) }}">
+                                <div class="ui basic label" >°F</div>
+                            </div>
+                        </div>
+                        <div class="field" data-tooltip="Number of degrees under or over the temperature target">
+                            <label>Target Temp Delta &nbsp;&nbsp; <span style="color: green;">Δ</span></label>
+                            <div class="ui right labeled input">
+                                <input name="target_delta" step="any" type="number" size="5" value="{{ (target_delta * 1.8) | round(1) }}">
+                                <div class="ui basic label" >°F</div>
+                            </div>
+                        </div>
+                        <div class="field" data-tooltip="Number of temperature measurements per minute">
+                            <label>Checks/Min &nbsp;&nbsp; <i class="stopwatch icon"></i></label>
+                            <div class="ui input">
+                                <input name="interval" step="1" type="number" size="3" value="{{ monitoring_interval }}">
+                            </div>
+                        </div>
+                        <div class="field center aligned">
+                            <button class="ui button" type="submit">Update</button>
+                        </div>
+                    </div>
+                </form>
             </div>
-            <div class="field">
-              <label>Heating Element State &nbsp;&nbsp; <i class="orange burn icon"></i></label>
-              <div class="basic label">
-                <div id="heater_state_label" class="ui {% if heater_state == 'on' %}red{% endif %} label">
-                  <span id="heater_state">{{heater_state}}</span>
-                </div>
-              </div>
+            <div class="ui attached segment" >
+                <h2 class="ui header" >Smoker</h2>
+                <canvas id="temp_chart" ></canvas>
             </div>
-            <div class="field" data-tooltip="Target temperature for the cook">
-              <label>Target Temp &nbsp;&nbsp; <i class="red bullseye icon"></i></label>
-              <div class="ui right labeled input">
-                <input name="target_temp" step="any" type="number" size="5" value="{{ (1.8 * target_temp + 32) | round(1) }}">
-                <div class="ui basic label" >°F</div>
-              </div>
+            <div class="ui attached segment" id="meater_segment" >
             </div>
-            <div class="field" data-tooltip="Number of degrees under or over the temperature target">
-              <label>Target Temp Delta &nbsp;&nbsp; <span style="color: green;">Δ</span></label>
-              <div class="ui right labeled input">
-                <input name="target_delta" step="any" type="number" size="5" value="{{ (target_delta * 1.8) | round(1) }}">
-                <div class="ui basic label" >°F</div>
-              </div>
-            </div>
-            <div class="field" data-tooltip="Number of temperature measurements per minute">
-              <label>Checks/Min &nbsp;&nbsp; <i class="stopwatch icon"></i></label>
-              <div class="ui input">
-                <input name="interval" step="1" type="number" size="3" value="{{ monitoring_interval }}">
-              </div>
-            </div>
-            <div class="field center aligned">
-              <button class="ui button" type="submit">Update</button>
-            </div>
-          </div>
-        </form>
-      </div>
-      <div class="ui attached segment" >
-        <canvas id="temp_chart" ></canvas>
-      </div>
-      <div class="ui attached segment">
-        <div class="ui accordion">
-          <div class="title">
-            <i class="dropdown icon" ></i>
-            Advanced Settings
-          </div>
-          <div class="content" >
-            <form name="advanced_form" class="ui form" action="/update_advanced" method="POST">
-              <div class="three fields">
-                <div class="field">
-                  <label>HASS Sensor Name</label>
-                  <div class="ui input">
-                    <input name="hass_sensor_name" type="text" value="{{hass_sensor_name}}">
-                  </div>
-                </div>
-                <div class="field">
-                  <label>HASS Switch Name</label>
-                  <div class="ui input">
-                    <input name="hass_entity_name" type="text" value="{{hass_entity_name}}">
-                  </div>
-                </div>
-                <div class="field">
-                  <div id="hass_sensor" class="ui checkbox">
-                    <input type="checkbox" name="hass_enable" value="enabled" {{hass_sensor_enabled}}>
-                    <label>Publish Sensor Data to HASS</label>
-                  </div>
-                </div>
-              </div>
-              <div class="four fields">
-                <div class="field">
-                  <label>Proportional Gain (K<sub>p</sub>)</label>
-                  <div class="ui input">
-                    <input name="proportional_gain" type="number" step="0.01" value="{{ proportional_gain }}">
-                  </div>
-                </div>
-                <div class="field">
-                  <label>Integral Gain (K<sub>i</sub>)</label>
-                  <div class="ui input">
-                    <input name="integral_gain" type="number" step="0.01" value="{{ integral_gain }}">
-                  </div>
-                </div>
-                <div class="field">
-                  <label>Integral Windup Guard</label>
-                  <div class="ui input">
-                    <input name="integral_windup_guard" type="number" value="{{ integral_windup_guard }}">
-                  </div>
-                </div>
-                <div class="field">
-                  <label>Derivative Gain (K<sub>d</sub>)</label>
-                  <div class="ui input">
-                    <input name="derivative_gain" type="number" step="0.01" value="{{ derivative_gain }}">
-                  </div>
-                </div>
-                <div class="field">
-                  <label>Alpha (α)</label>
-                  <div class="ui input">
-                    <input name="alpha" type="number" value="{{ alpha }}">
-                  </div>
-                </div>
-              </div>
-              <button class="ui button" type="submit">Submit</button>
-            </form>
-          </div>
+            <!-- <div class="ui attached segment"> -->
+            <!--   <div class="ui accordion"> -->
+            <!--     <div class="title"> -->
+            <!--       <i class="dropdown icon" ></i> -->
+            <!--       Advanced Settings -->
+            <!--     </div> -->
+            <!--     <div class="content" > -->
+            <!--       <form name="advanced_form" class="ui form" action="/update_advanced" method="POST"> -->
+            <!--         <div class="three fields"> -->
+            <!--           <div class="field"> -->
+            <!--             <label>HASS Sensor Name</label> -->
+            <!--             <div class="ui input"> -->
+            <!--               <input name="hass_sensor_name" type="text" value="{{hass_sensor_name}}"> -->
+            <!--             </div> -->
+            <!--           </div> -->
+            <!--           <div class="field"> -->
+            <!--             <label>HASS Switch Name</label> -->
+            <!--             <div class="ui input"> -->
+            <!--               <input name="hass_entity_name" type="text" value="{{hass_entity_name}}"> -->
+            <!--             </div> -->
+            <!--           </div> -->
+            <!--           <div class="field"> -->
+            <!--             <div id="hass_sensor" class="ui checkbox"> -->
+            <!--               <input type="checkbox" name="hass_enable" value="enabled" {{hass_sensor_enabled}}> -->
+            <!--               <label>Publish Sensor Data to HASS</label> -->
+            <!--             </div> -->
+            <!--           </div> -->
+            <!--         </div> -->
+            <!--         <div class="four fields"> -->
+            <!--           <div class="field"> -->
+            <!--             <label>Proportional Gain (K<sub>p</sub>)</label> -->
+            <!--             <div class="ui input"> -->
+            <!--               <input name="proportional_gain" type="number" step="0.01" value="{{ proportional_gain }}"> -->
+            <!--             </div> -->
+            <!--           </div> -->
+            <!--           <div class="field"> -->
+            <!--             <label>Integral Gain (K<sub>i</sub>)</label> -->
+            <!--             <div class="ui input"> -->
+            <!--               <input name="integral_gain" type="number" step="0.01" value="{{ integral_gain }}"> -->
+            <!--             </div> -->
+            <!--           </div> -->
+            <!--           <div class="field"> -->
+            <!--             <label>Integral Windup Guard</label> -->
+            <!--             <div class="ui input"> -->
+            <!--               <input name="integral_windup_guard" type="number" value="{{ integral_windup_guard }}"> -->
+            <!--             </div> -->
+            <!--           </div> -->
+            <!--           <div class="field"> -->
+            <!--             <label>Derivative Gain (K<sub>d</sub>)</label> -->
+            <!--             <div class="ui input"> -->
+            <!--               <input name="derivative_gain" type="number" step="0.01" value="{{ derivative_gain }}"> -->
+            <!--             </div> -->
+            <!--           </div> -->
+            <!--           <div class="field"> -->
+            <!--             <label>Alpha (α)</label> -->
+            <!--             <div class="ui input"> -->
+            <!--               <input name="alpha" type="number" value="{{ alpha }}"> -->
+            <!--             </div> -->
+            <!--           </div> -->
+            <!--         </div> -->
+            <!--         <button class="ui button" type="submit">Submit</button> -->
+            <!--       </form> -->
+            <!--     </div> -->
+            <!--   </div> -->
         </div>
-      </div>
-    </div>
+        </div>
 
-    <script>
-      $('#element_toggle.ui.checkbox').checkbox({
-          onChange: () => {
-              $('form#element_toggle').submit();
-          }
-      });
-      $('#monitoring_toggle.ui.checkbox').checkbox({
-          onChange: () => {
-              console.log('monitoring toggle.');
-              $('form#monitoring_toggle').submit();
-          }
-      });
+        <script>
+         $('#element_toggle.ui.checkbox').checkbox({
+             onChange: () => {
+                 $('form#element_toggle').submit();
+             }
+         });
+         $('#monitoring_toggle.ui.checkbox').checkbox({
+             onChange: () => {
+                 console.log('monitoring toggle.');
+                 $('form#monitoring_toggle').submit();
+             }
+         });
 
-      $('#hass_sensor.ui.checkbox').checkbox();
+         $('#hass_sensor.ui.checkbox').checkbox();
 
-      $('.ui.accordion').accordion();
-      $('.ui.form#temp_form').form({
-          fields: {
-              target_temp: {
-                  identifier: 'target_temp',
-                  rules: [ { type: 'number' } ]
-              },
-              target_delta: {
-                  identifier: 'target_delta',
-                  rules: [ { type: 'number' } ]
-              }
-          }
-      });
-      $('.ui.form#advanced_form').form({
-          on: 'blur',
-          fields: {
-              proportional_gain: {
-                  identifier: 'proportional_gain',
-                  rules: [ { type: 'number' } ]
-              },
-              integral_gain: {
-                  identifier: 'integral_gain',
-                  rules: [ { type: 'number' } ]
-              },
-              derivative_gain: {
-                  identifier: 'derivative_gain',
-                  rules: [ { type: 'number' } ]
-              },
-          }
-      });
+         $('.ui.accordion').accordion();
+         $('.ui.form#temp_form').form({
+             fields: {
+                 target_temp: {
+                     identifier: 'target_temp',
+                     rules: [ { type: 'number' } ]
+                 },
+                 target_delta: {
+                     identifier: 'target_delta',
+                     rules: [ { type: 'number' } ]
+                 }
+             }
+         });
+         $('.ui.form#advanced_form').form({
+             on: 'blur',
+             fields: {
+                 proportional_gain: {
+                     identifier: 'proportional_gain',
+                     rules: [ { type: 'number' } ]
+                 },
+                 integral_gain: {
+                     identifier: 'integral_gain',
+                     rules: [ { type: 'number' } ]
+                 },
+                 derivative_gain: {
+                     identifier: 'derivative_gain',
+                     rules: [ { type: 'number' } ]
+                 },
+             }
+         });
 
-      $('#refresh_button').on('click', function () {
-          console.log('Going to call refreshState');
-          refreshState();
-      });
+         $('#refresh_button').on('click', function () {
+             console.log('Going to call refreshState');
+             refreshState();
+         });
 
-      // The list of states indicating that monitoring is not
-      // actively happening.
-      const stopped_states = [
-          'Failed (Thermocouple)',
-          'Stopped',
-          'Stopping'
-      ];
+         // The list of states indicating that monitoring is not
+         // actively happening.
+         const stopped_states = [
+             'Failed (Thermocouple)',
+             'Stopped',
+             'Stopping'
+         ];
 
-      // The chart.js chart object.  See createChart() for
-      // initialization details.
-      var smoker_chart = null;
+         // The chart.js chart object.  See createChart() for
+         // initialization details.
+         var smoker_chart = null;
+         var meater_charts = {};
 
-      // This records the most recent data value seen.  Used when
-      // fetching new data.
-      var last_index = 0;
+         // This records the most recent data value seen.  Used when
+         // fetching new data.
+         var last_index = 0;
+         var last_meater_index = 0;
 
-      // Convert Celsius to Fahrenheit
-      function cToF(tempC) { return (1.8 * tempC + 32.0).toFixed(1); }
+         // Convert Celsius to Fahrenheit
+         function cToF(tempC) { return (1.8 * tempC + 32.0).toFixed(1); }
 
-      function updateInfo() {
-          refreshState();
-          fetchNewData();
-      }
+         function updateInfo() {
+             refreshState();
+             fetchNewData();
+             fetchNewMeaterData();
+         }
 
-      function refreshState() {
-          console.log('Refresh state');
-          $.ajax({
-              url: 'http://smoker.iot.house:5000/state',
-              dataType: 'application/json',
-              complete: function (data) {
-                  console.log('Got ' + JSON.stringify(data, null, 2));
-                  state_data = JSON.parse(data.responseText);
-                  /* Update the monitoring state */
-                  $('#monitoring_state').text(state_data.state);
-                  /* Update the heater state display */
-                  $('#heater_state').text(state_data.heater_state);
-                  var heater_state_label = $('div#heater_state_label');
-                  if (state_data.heater_state == 'on') {
-                      heater_state_label.removeClass('grey');
-                      heater_state_label.addClass('red');
-                  } else {
-                      heater_state_label.addClass('grey');
-                      heater_state_label.removeClass('red');
-                  }
-                  if (state_data.action != '') {
-                      $('#action_button').show();
-                      $('#monitoring_action').text(state_data.action);
-                      $('#monitoring_action_input').val(state_data.action);
-                  } else {
-                      $('#action_button').hide();
-                  }
-              }
-          });
-      }
+         function refreshState() {
+             // console.log('Refresh state');
+             $.ajax({
+                 url: 'http://smoker.iot.house:{{listen_port}}/state',
+                 dataType: 'application/json',
+                 complete: function (data) {
+                     // console.log('Got ' + JSON.stringify(data, null, 2));
+                     state_data = JSON.parse(data.responseText);
+                     /* Update the monitoring state */
+                     $('#monitoring_state').text(state_data.state);
+                     /* Update the heater state display */
+                     $('#heater_state').text(state_data.heater_state);
+                     var heater_state_label = $('div#heater_state_label');
+                     if (state_data.heater_state == 'on') {
+                         heater_state_label.removeClass('grey');
+                         heater_state_label.addClass('red');
+                     } else {
+                         heater_state_label.addClass('grey');
+                         heater_state_label.removeClass('red');
+                     }
+                     if (state_data.action != '') {
+                         $('#action_button').show();
+                         $('#monitoring_action').text(state_data.action);
+                         $('#monitoring_action_input').val(state_data.action);
+                     } else {
+                         $('#action_button').hide();
+                     }
+                 }
+             });
+         }
 
-      function fetchNewData() {
-          var new_data = [];
-          // console.log(`updateData last_index == ${last_index}`);
+         // Fetch new data for the smoker and plot that data.
+         function fetchNewData() {
+             var new_data = [];
+             // console.log(`updateData last_index == ${last_index}`);
 
-          if ((stopped_states.includes($('#monitoring_state').text())) &&
-              (last_index != 0)) {
-              console.log('Monitoring is not happening.');
-              return;
-          }
+             if ((stopped_states.includes($('#monitoring_state').text())) &&
+                 (last_index != 0)) {
+                 console.log('Monitoring is not happening.');
+                 return;
+             }
 
-          var data_url = 'http://smoker.iot.house:5000/temp_history';
-          if (last_index > 0) {
-              data_url = `http://smoker.iot.house:5000/temp_history/since/${last_index}`;
-          }
+             var data_url = 'http://smoker.iot.house:{{listen_port}}/temp_history';
+             if (last_index > 0) {
+                 data_url = `http://smoker.iot.house:{{listen_port}}/temp_history/since/${last_index}`;
+             }
 
-          $.ajax({
-              url: data_url,
-              dataType: 'application/json',
-              complete: function(data) {
-                  new_data = JSON.parse(data.responseText);
-                  // console.log('New points = ' + new_data.length)
-                  new_data.map(item=>updateChart(item));
-                  smoker_chart.update();
-              }
-          });
-      }
+             $.ajax({
+                 url: data_url,
+                 dataType: 'application/json',
+                 complete: function(data) {
+                     new_data = JSON.parse(data.responseText);
+                     // console.log('New points = ' + new_data.length)
+                     new_data.map(item=>updateChart(item));
+                     smoker_chart.update();
+                 }
+             });
+         }
 
-      function updateChart(new_item) {
-          smoker_chart.data.labels.push(new Date(Date.parse(new_item.time)));
-          smoker_chart.data.datasets[0].data.push(cToF(new_item.temperature));
-          smoker_chart.data.datasets[1].data.push(cToF(new_item.set_temperature - new_item.delta));
-          smoker_chart.data.datasets[2].data.push(cToF(new_item.set_temperature));
-          smoker_chart.data.datasets[3].data.push(cToF(new_item.set_temperature + new_item.delta));
-          smoker_chart.data.datasets[4].data.push(cToF(new_item.one_min_temp));
-          smoker_chart.data.datasets[5].data.push(new_item.heating);
-          last_index = new_item.index;
-          // console.log(`updateChart last_index == ${last_index}`);
-          $('div#current_temperature').text(`${cToF(new_item.temperature)} °F`);
-      }
+         // Fetch new Meater data from the server and update the chart
+         // for it.  If a chart doesn't already exist, create a new
+         // element for the chart and create the chart before adding data
+         // to it.
+         function fetchNewMeaterData() {
+             var new_data = [];
+             // console.log(`updateData last_index == ${last_index}`);
 
-      function createChart() {
-          const dataset_details = [
-              {
-                  label: 'Smoker Temp',
-                  borderWidth: 1,
-                  pointRadius: 1,
-                  data: [],
-                  backgroundColor: 'rgb(0,0,255)',
-                  borderColor: 'rgb(0,0,255)',
-                  spanGaps: false,
-                  yAxisID: 'y_temp',
-              },
-              {
-                  label: 'none',
-                  data: [],
-                  fill: '+1',
-                  backgroundColor: 'rgba(0,255,0,0.1)',
-                  borderColor: 'rgba(0,255,0,0.1)',
-                  pointStyle: false,
-                  showLine: false,
-                  spanGaps: false,
-                  yAxisID: 'y_temp',
-              },
-              {
-                  label: 'Target Temp',
-                  borderWidth: 1,
-                  pointStyle: false,
-                  backgroundColor: 'rgb(0, 128, 0)',
-                  borderColor: 'rgb(0, 128, 0)',
-                  borderDash: [10, 5],
-                  data: [],
-                  spanGaps: false,
-                  yAxisID: 'y_temp',
-              },
-              {
-                  label: 'Target Range',
-                  data: [],
-                  fill: '-1',
-                  backgroundColor: 'rgba(0,255,0,0.1)',
-                  borderColor: 'rgba(0,255,0,0.1)',
-                  pointStyle: false,
-                  showLine: false,
-                  spanGaps: false,
-                  yAxisID: 'y_temp',
-              },
-              {
-                  label: 'Predicted Temp',
-                  borderWidth: 1,
-                  pointRadius: 1,
-                  data: [],
-                  backgroundColor: 'rgb(255,0,0)',
-                  borderColor: 'rgb(255,0,0)',
-                  spanGaps: false,
-                  yAxisID: 'y_temp',
-              },
-              {
-                  label: 'Heating',
-                  borderWidth: 1,
-                  pointRadius: 1,
-                  fill: true,
-                  data: [],
-                  backgroundColor: 'rgba(255,165,0,0.25)',
-                  //borderColor: 'rgba(255,165,0,0.25)',
-                  borderSkipped: true,
-                  spanGaps: false,
-                  yAxisID: 'y_heating',
-                  type: 'bar',
-                  barThickness: 'flex',
-                  barPercentage: 1.0,
-                  categoryPercentage: 1.0,
-              }
-          ];
-          const option_details = {
-              plugins: {
-                  legend: {
-                      labels: {
-                          filter: item => item.text !== 'none'
-                      }
-                  },
-              },
-              scales: {
-                  x: {
-                      type: 'time',
-                      ticks: {
-                          autoSkip: true,
-                          maxTicksLimit: 10
-                      }
-                  },
-                  y_temp: {
-                      type: 'linear',
-                      display: true,
-                      position: 'left',
-                      min: 0,
-                      // max: 400
-                  },
-                  y_heating: {
-                      type: 'linear',
-                      display: false,
-                      position: 'right',
-                      grid: {
-                          drawOnChartArea: false,
-                      },
-                      min: 0,
-                      max: 1,
-                  }
-              },
-              animation: false,
-          };
+             if ((stopped_states.includes($('#monitoring_state').text())) &&
+                 (last_index != 0)) {
+                 console.log('Monitoring is not happening.');
+                 return;
+             }
 
-          smoker_chart = new Chart(document.getElementById('temp_chart'),
-                                   { type: 'line',
-                                     data: {
-                                         labels: [],
-                                         datasets: dataset_details,
-                                     },
-                                     options: option_details
-                                   }
-                                  );
-      }
+             var data_url = 'http://smoker.iot.house:{{listen_port}}/meater/history';
+             if (last_meater_index > 0) {
+                 data_url = `http://smoker.iot.house:{{listen_port}}/meater/history/since/${last_meater_index}`;
+             }
 
-      // Create the chart.
-      createChart();
+             $.ajax({
+                 url: data_url,
+                 dataType: 'application/json',
+                 complete: function(data) {
+                     new_data = JSON.parse(data.responseText);
+                     Object.keys(new_data).forEach((key) => {
+                         if (!(key in meater_charts)) {
+                             meater_charts[key] = createMeaterChart(key, new_data[key][0]);
+                         }
+                         var meater_chart = meater_charts[key];
 
-      // Fetch the current data.
-      fetchNewData();
+                         new_data[key].map(item => updateMeaterChart(meater_chart, item));
+                         meater_chart.update();
+                     });
+                 }
+             });
+         }
 
-      if (!stopped_states.includes($('#monitoring_state').text())) {
-          setInterval(updateInfo, 6000);
-      }
-    </script>
-  </body>
+         // Update the meater chart with new data from the server.
+         function updateMeaterChart(meater_chart, new_item) {
+             meater_chart.data.labels.push(new Date(new_item.timestamp_ms));
+             meater_chart.data.datasets[0].label = `${new_item.name} Internal` ;
+             meater_chart.data.datasets[0].data.push(cToF(new_item.internal));
+             meater_chart.data.datasets[1].data.push(cToF(new_item.ambient));
+             meater_chart.data.datasets[2].data.push(cToF(new_item.target_temp));
+             meater_chart.data.datasets[3].data.push(new_item.remaining);
+             if (new_item.index > last_meater_index) {
+                 last_meater_index = new_item.index;
+             }
+         }
+
+         function updateChart(new_item) {
+             smoker_chart.data.labels.push(new Date(new_item.timestamp_ms));
+             smoker_chart.data.datasets[0].data.push(cToF(new_item.temperature));
+             smoker_chart.data.datasets[1].data.push(cToF(new_item.set_temperature - new_item.delta));
+             smoker_chart.data.datasets[2].data.push(cToF(new_item.set_temperature));
+             smoker_chart.data.datasets[3].data.push(cToF(new_item.set_temperature + new_item.delta));
+             //smoker_chart.data.datasets[4].data.push(cToF(new_item.one_min_temp));
+             //smoker_chart.data.datasets[5].data.push(new_item.heating);
+             smoker_chart.data.datasets[4].data.push(new_item.heating);
+             last_index = new_item.index;
+             // console.log(`updateChart last_index == ${last_index}`);
+             $('div#current_temperature').text(`${cToF(new_item.temperature)} °F`);
+         }
+
+         function createMeaterChart(id, item) {
+
+             const dataset_details = [
+                 {
+                     label: 'Internal Temp',
+                     borderWidth: 1,
+                     pointRadius: 1,
+                     data: [],
+                     backgroundColor: 'blue',
+                     borderColor: 'blue',
+                     pointStyle: false,
+                     spanGaps: false,
+                     yAxisID: 'y_temp',
+                 },
+                 {
+                     label: 'Ambient Temp',
+                     borderWidth: 1,
+                     pointRadius: 1,
+                     data: [],
+                     backgroundColor: 'orange',
+                     borderColor: 'orange',
+                     pointStyle: false,
+                     spanGaps: false,
+                     yAxisID: 'y_temp',
+                 },
+                 {
+                     label: 'Target Temp',
+                     borderWidth: 1,
+                     pointRadius: 1,
+                     pointStyle: false,
+                     backgroundColor: 'red',
+                     borderColor: 'red',
+                     borderDash: [10, 5],
+                     data: [],
+                     spanGaps: false,
+                     yAxisID: 'y_temp',
+                 },
+                 {
+                     label: 'Time Remaining (s)',
+                     borderWidth: 1,
+                     pointRadius: 1,
+                     pointStyle: false,
+                     backgroundColor: 'green',
+                     borderColor: 'green',
+                     data: [],
+                     spanGaps: false,
+                     yAxisID: 'y_time',
+                 }
+             ];
+             const option_details = {
+                 plugins: {
+                     legend: {
+                         labels: {
+                             filter: item => item.text !== 'none'
+                         }
+                     },
+                 },
+                 scales: {
+                     x: {
+                         type: 'time',
+                         ticks: {
+                             autoSkip: true,
+                             maxTicksLimit: 10
+                         }
+                     },
+                     y_temp: {
+                         type: 'linear',
+                         display: true,
+                         position: 'left',
+                         min: 0,
+                         // max: 400
+                     },
+                     y_time: {
+                         type: 'linear',
+                         display: true,
+                         position: 'right',
+                     },
+                     y_heating: {
+                         type: 'linear',
+                         display: false,
+                         position: 'right',
+                         grid: {
+                             drawOnChartArea: false,
+                         },
+                         min: 0,
+                         max: 1,
+                     }
+                 },
+                 animation: false,
+             };
+
+             var canvas = `<div class="ui basic segment"><h2 class="ui header">Cook:  ${item.name}</h2><canvas id="${id}"></canvas></div>`;
+             $("#meater_segment").append(canvas)
+
+             return new Chart(document.getElementById(id),
+                              { type: 'line',
+                                data: {
+                                    labels: [],
+                                    datasets: dataset_details,
+                                },
+                                options: option_details
+             });
+         }
+
+         function createChart() {
+             const dataset_details = [
+                 {
+                     label: 'Smoker Temp',
+                     borderWidth: 1,
+                     pointRadius: 1,
+                     data: [],
+                     backgroundColor: 'rgb(0,0,255)',
+                     borderColor: 'rgb(0,0,255)',
+                     pointStyle: false,
+                     spanGaps: false,
+                     yAxisID: 'y_temp',
+                 },
+                 {
+                     label: 'none',
+                     data: [],
+                     fill: '+1',
+                     backgroundColor: 'rgba(0,255,0,0.1)',
+                     borderColor: 'rgba(0,255,0,0.1)',
+                     pointStyle: false,
+                     showLine: false,
+                     spanGaps: false,
+                     yAxisID: 'y_temp',
+                 },
+                 {
+                     label: 'Target Temp',
+                     borderWidth: 1,
+                     pointStyle: false,
+                     backgroundColor: 'rgb(0, 128, 0)',
+                     borderColor: 'rgb(0, 128, 0)',
+                     borderDash: [10, 5],
+                     data: [],
+                     spanGaps: false,
+                     yAxisID: 'y_temp',
+                 },
+                 {
+                     label: 'Target Range',
+                     data: [],
+                     fill: '-1',
+                     backgroundColor: 'rgba(0,255,0,0.1)',
+                     borderColor: 'rgba(0,255,0,0.1)',
+                     pointStyle: false,
+                     showLine: false,
+                     spanGaps: false,
+                     yAxisID: 'y_temp',
+                 },
+                 // {
+                 //     label: 'Predicted Temp',
+                 //     borderWidth: 1,
+                 //     pointRadius: 1,
+                 //     data: [],
+                 //     backgroundColor: 'rgb(255,0,0)',
+                 //     borderColor: 'rgb(255,0,0)',
+                 //     spanGaps: false,
+                 //     yAxisID: 'y_temp',
+                 // },
+                 {
+                     label: 'Heating',
+                     borderWidth: 1,
+                     pointRadius: 1,
+                     fill: true,
+                     data: [],
+                     backgroundColor: 'rgba(255,165,0,0.25)',
+                     //borderColor: 'rgba(255,165,0,0.25)',
+                     borderSkipped: true,
+                     spanGaps: false,
+                     yAxisID: 'y_heating',
+                     type: 'bar',
+                     barThickness: 'flex',
+                     barPercentage: 1.0,
+                     categoryPercentage: 1.0,
+                 }
+             ];
+             const option_details = {
+                 plugins: {
+                     legend: {
+                         labels: {
+                             filter: item => item.text !== 'none'
+                         }
+                     },
+                 },
+                 scales: {
+                     x: {
+                         type: 'time',
+                         ticks: {
+                             autoSkip: true,
+                             maxTicksLimit: 10
+                         }
+                     },
+                     y_temp: {
+                         type: 'linear',
+                         display: true,
+                         position: 'left',
+                         min: 0,
+                         // max: 400
+                     },
+                     y_heating: {
+                         type: 'linear',
+                         display: false,
+                         position: 'right',
+                         grid: {
+                             drawOnChartArea: false,
+                         },
+                         min: 0,
+                         max: 1,
+                     }
+                 },
+                 animation: false,
+             };
+
+             smoker_chart = new Chart(document.getElementById('temp_chart'),
+                                      { type: 'line',
+                                        data: {
+                                            labels: [],
+                                            datasets: dataset_details,
+                                        },
+                                        options: option_details
+                                      }
+             );
+         }
+
+         // Create the chart.
+         createChart();
+
+         // Fetch the current data.
+         fetchNewData();
+         fetchNewMeaterData();
+
+         if (!stopped_states.includes($('#monitoring_state').text())) {
+             setInterval(updateInfo, 6000);
+         }
+        </script>
+    </body>
 </html>
 
 
 <!--                      /* plugins: [{
-                          *     beforeRender: (x, options) => {
-                          *         const c = x.chart;
-                          *         const dataset = x.data.datasets[0];
-                          *         const yScale = x.scales['y-axis-0'];
-                          *         const yPos = x.scales['y-axis-0'].getPixelForValue(27);
+     *     beforeRender: (x, options) => {
+     *         const c = x.chart;
+     *         const dataset = x.data.datasets[0];
+     *         const yScale = x.scales['y-axis-0'];
+     *         const yPos = x.scales['y-axis-0'].getPixelForValue(27);
 
-                          *         const gradientFill = c.ctx.createLinearGradient(0, 0, 0, c.height);
+     *         const gradientFill = c.ctx.createLinearGradient(0, 0, 0, c.height);
 
-                          *         /* Red from top to 0 */
-                          *         gradientFill.addColorStop(0, 'rgb(255,0,0)');
-                          *         gradientFill.addColorStop(yPos / c.height, 'rgb(255,0,0)');
+     *         /* Red from top to 0 */
+     *         gradientFill.addColorStop(0, 'rgb(255,0,0)');
+     *         gradientFill.addColorStop(yPos / c.height, 'rgb(255,0,0)');
 
-                          *         /* Blue from 0 to bottom */
-                          *         gradientFill.addColorStop(yPos / c.height, 'rgb(0,0,255)');
-                          *         gradientFill.addColorStop(1, 'rgb(0,255)');
-                          *     }
-                          }] */
-  -->
+     *         /* Blue from 0 to bottom */
+     *         gradientFill.addColorStop(yPos / c.height, 'rgb(0,0,255)');
+     *         gradientFill.addColorStop(1, 'rgb(0,255)');
+     *     }
+     }] */
+-->
 <!--              <button id="action_button" class="ui submit button" ><span id="monitoring_action">{{monitoring_action}}</span> Monitoring</button>
-                  <div class="basic label">
-                    <span id="monitoring_state">{{monitoring_state}}</span>
-                    <div class="ui button" onclick="refreshState();">Refresh</div>
-                    <div class="ui error message"></div> -->
+     <div class="basic label">
+     <span id="monitoring_state">{{monitoring_state}}</span>
+     <div class="ui button" onclick="refreshState();">Refresh</div>
+     <div class="ui error message"></div> -->
